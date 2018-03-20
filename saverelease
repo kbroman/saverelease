@@ -1,0 +1,193 @@
+#!/usr/bin/perl
+######################################################################
+# saverelease
+#
+# Karl W Broman, Johns Hopkins University
+# 7-8 Nov 2003
+# revised 19 Feb 2018 (tests/testthat.R and NAMESPACE)
+# revised 20 Mar 2018 (tests/*.R, tests/*.Rout.save, packageVersion() in R/*.R)
+#
+# Create a "release" version of an R package, so that I can know for
+# sure what my users are using.
+#
+#     - Replace "qtl" in the DESCRIPTION file with "qtlrelease"
+#     - Replace "qtl" in zzz.R with "qtlrelease"
+#     - Replace 'PACKAGE="qtl"' with 'PACKAGE="qtlrelease"' in .R files
+#     - Replace "[qtl]" in all of the .Rd files with "[qtlrelease]"
+#     - Replace "library(qtl)" with "library(qtlrelease)" in test_io.R
+#       and test_io.Rout.save and related
+#     - Replace test_check("qtl") with test_check("qtlrelease") in
+#       tests/testthat.R
+#     - Replace useDynLib(qtl, ....) with useDynLib(qtlrelease, ....)
+#       in NAMESPACE
+#     - Replace library(qtl) in vignettes/bcsft.Rnw
+#
+######################################################################
+
+$pack = $ARGV[0];
+if($pack eq "") { $pack = "qtl"; }
+$newpack = $pack . "release";
+
+print(" -Changing $pack to $newpack.\n");
+
+# replace "qtl" with "qtlrelease" in the DESCRIPTION file
+print(" -DESCRIPTION file\n");
+$nfile = $pack . "/DESCRIPTION";
+$ofile = "temp";
+system("\\mv $nfile $ofile");
+open(IN, $ofile) or die("Cannot read from $ofile");
+open(OUT, ">$nfile") or die("Cannot write to $nfile");
+while($line = <IN>) {
+    if($line =~ /^Package:/) {
+    print OUT ("Package: $newpack\n");
+    }
+    else {
+    print OUT ("$line");
+    }
+}
+close(IN);
+close(OUT);
+
+print(" -R code files\n");
+$dir = $pack . "/R";
+opendir(DIR, $dir);
+while(defined($file = readdir(DIR))) {
+    unless($file =~ /\.R$/) { next; }
+
+    $file = $dir . "/" . $file;
+    system("\\mv $file $ofile");
+    open(IN, $ofile) or die("Cannot read from $ofile.\n");
+    open(OUT, ">$file") or die("Cannot write to $file.\n");
+    $flag = 0;
+    while($line = <IN>) {
+    if($line =~ /PACKAGE=\"$pack\"/) {
+        $line =~ s/\"$pack\"/\"$newpack\"/g;
+        $flag = 1;
+    }
+    if($line =~ /dynam\(\"$pack\"/) {
+        $line =~ s/\"$pack\"/\"$newpack\"/g;
+        $flag = 1;
+    }
+    if($line =~ /\"$pack\",\"Version\"/) {
+        $line =~ s/\"$pack\"/\"$newpack\"/g;
+        $flag = 1;
+    }
+    if($line =~ /help=$pack/) {
+        $line =~ s/help=$pack/help=$newpack/;
+        $flag = 1;
+    }
+    if($line =~ /packageVersion\(\"$pack\"\)/) {
+        $line =~ s/packageVersion\(\"$pack\"\)/packageVersion\(\"$newpack\"\)/;
+        $flag = 1;
+    }
+    if($line =~ /packageDescription\(\"$pack\"\)/) {
+        $line =~ s/packageDescription\(\"$pack\"\)/packageDescription\(\"$newpack\"\)/;
+        $flag = 1;
+    }
+    print OUT $line;
+    }
+    close(IN);
+    close(OUT);
+    if($flag) {
+    print(" ---$file\n");
+    }
+}
+
+
+print(" -Internal docs\n");
+$file = $pack . "/man/$pack" . "-internal.Rd";
+if(-e $file) {
+    system("\\mv $file $ofile");
+    $file = $pack . "/man/$newpack" . "-internal.Rd";
+    open(IN, $ofile) or die("Cannot read from $ofile.\n");
+    open(OUT, ">$file") or die("Cannot write to $file.\n");
+    while($line = <IN>) {
+    $line =~ s/$pack\-internal/$newpack\-internal/;
+    print OUT $line;
+    }
+    close(IN);
+    close(OUT);
+}
+
+print(" -Rd doc files\n");
+$dir = $pack . "/man";
+opendir(DIR, $dir);
+while(defined($file = readdir(DIR))) {
+    unless($file =~ /\.Rd$/) { next; }
+
+    $file = $dir . "/" . $file;
+    system("\\mv $file $ofile");
+    open(IN, $ofile) or die("Cannot read from $ofile.\n");
+    open(OUT, ">$file") or die("Cannot write to $file.\n");
+    $flag = 0;
+    while($line = <IN>) {
+    if($line =~ /\[$pack\]/) {
+        $line =~ s/\[$pack\]/\[$newpack\]/g;
+        $flag = 1;
+    }
+    print OUT $line;
+    }
+    close(IN);
+    close(OUT);
+    if($flag) {
+    print(" ---$file\n");
+    }
+}
+system("\\rm $ofile");
+
+print(" -Fixing test files\n");
+$dir = $pack . "/tests/";
+opendir(DIR, $dir);
+while(defined($ifile = readdir(DIR))) {
+    unless($ifile =~ /\.R$/ || $ifile =~ /\.save$/) { next; }
+
+    $in = $dir . $ifile;
+    open(IN, $in) or die("Cannot read from $in");
+    open(OUT, ">$ofile") or die("Cannot read from $ofile");
+    while($line = <IN>) {
+    if($line =~ /library\($pack\)/) {
+        $line =~ s/library\($pack\)/library\($newpack\)/g;
+    }
+    if($line =~ /test_check/) {
+        $line =~ s/"$pack"/"$newpack"/;
+    }
+    print OUT ("$line");
+    }
+    close(IN);
+    close(OUT);
+    system("\\mv $ofile $in");
+}
+
+print(" -Fixing NAMESPACE\n");
+$ifile = $pack . "/NAMESPACE";
+$ofile = $pack . "/junk";
+open(IN, $ifile) or die("Cannot read from $ifile");
+open(OUT, ">$ofile") or die("Cannot read from $ofile");
+while($line = <IN>) {
+    if($line =~ /useDynLib/) {
+        $line =~ s/$pack/$newpack/;
+    }
+    print OUT ("$line");
+}
+close(IN);
+close(OUT);
+system("\\mv $ofile $ifile");
+
+print(" -Fixing vignette\n");
+$ifile = $pack . "/vignettes/bcsft.Rnw";
+$ofile = $pack . "/junk";
+open(IN, $ifile) or die("Cannot read from $ifile");
+open(OUT, ">$ofile") or die("Cannot read from $ofile");
+while($line = <IN>) {
+    if($line =~ /library\($pack\)/) {
+        $line =~ s/library\($pack\)/library\($newpack\)/g;
+    }
+    print OUT ("$line");
+}
+close(IN);
+close(OUT);
+system("\\mv $ofile $ifile");
+
+system("\\mv $pack $newpack");
+
+# end of saverelease
