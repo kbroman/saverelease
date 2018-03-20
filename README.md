@@ -1,9 +1,9 @@
 # saverelease
 
 A perl script to convert an R package (well, mostly R/qtl) to be named
-"packrelease", so I can have two versions installed (development
-version + released version). This way I can more easily check how
-things are behaving in the released version.
+"[package]release", so I can have two versions installed (development
+version "qtl" + released version "qtlrelease"). This way I can more
+easily check how things are behaving in the released version.
 
 It basically goes through and replaces "qtl" with "qtlrelease"
 throughout.
