@@ -20,7 +20,7 @@
 #       tests/testthat.R
 #     - Replace useDynLib(qtl, ....) with useDynLib(qtlrelease, ....)
 #       in NAMESPACE
-#     - Replace library(qtl) in vignettes/bcsft.Rnw
+#     - Replace library(qtl) in vignettes/*.Rnw and vignettes/*.Rmd
 #
 ######################################################################
 
@@ -173,20 +173,26 @@ close(IN);
 close(OUT);
 system("\\mv $ofile $ifile");
 
-print(" -Fixing vignette\n");
-$ifile = $pack . "/vignettes/bcsft.Rnw";
-$ofile = $pack . "/junk";
-open(IN, $ifile) or die("Cannot read from $ifile");
-open(OUT, ">$ofile") or die("Cannot read from $ofile");
-while($line = <IN>) {
-    if($line =~ /library\($pack\)/) {
-        $line =~ s/library\($pack\)/library\($newpack\)/g;
+print(" -Fixing vignettes\n");
+$dir = $pack . "/vignettes/";
+opendir(DIR, $dir);
+while(defined($file = readdir(DIR))) {
+    unless($file =~ /\.Rnw$/ || $file =~ /\.Rmd$/) { next; }
+
+    $ifile = $dir . $file;
+    $ofile = $pack . "/junk";
+    open(IN, $ifile) or die("Cannot read from $ifile");
+    open(OUT, ">$ofile") or die("Cannot read from $ofile");
+    while($line = <IN>) {
+        if($line =~ /library\($pack\)/) {
+            $line =~ s/library\($pack\)/library\($newpack\)/g;
+        }
+        print OUT ("$line");
     }
-    print OUT ("$line");
+    close(IN);
+    close(OUT);
+    system("\\mv $ofile $ifile");
 }
-close(IN);
-close(OUT);
-system("\\mv $ofile $ifile");
 
 system("\\mv $pack $newpack");
 
